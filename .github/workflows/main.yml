@@ -1,6 +1,8 @@
 name: Build CruelKernel for S10e
 
-on: [push, workflow_dispatch]
+on:
+  push:
+  workflow_dispatch:
 
 env:
   TOOLCHAIN: cruel
@@ -19,78 +21,34 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.9'
 
       - name: Install dependencies
         env:
           DEBIAN_FRONTEND: noninteractive
         run: sudo apt-get install -y -qq libtinfo5 ccache
 
-      - name: Disable compression in ccache and set ccache path
-        run: ccache -o compression=false -o cache_dir=$HOME/.ccache
-
-      - name: Prepare ccache timestamp
-        id: ccache_timestamp
-        run: |
-          echo "FULL_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-          echo "MONTH_DATE=$(date +'%Y-%m')" >> $GITHUB_ENV
-
-      - name: Create cache key from ${{ matrix.model }}
-        id: ccache_model_key
-        run: echo "KEY=$( echo ${{ matrix.model }} | tr ',' '_' )" >> $GITHUB_ENV
-
-      - name: Cache ccache files
-        uses: actions/cache@v3
-        with:
-          path: ~/.ccache
-          key: ccache-${{ env.TOOLCHAIN }}-${{ env.KEY }}-${{ env.FULL_DATE }}
-          restore-keys: |
-            ccache-${{ env.TOOLCHAIN }}-${{ env.KEY }}-${{ env.MONTH_DATE }}
-            ccache-${{ env.TOOLCHAIN }}-${{ env.KEY }}-
-            ccache-${{ env.TOOLCHAIN }}-
-
       - name: Kernel Configure
         run: |
-          set -e -o pipefail
-          ./cruelbuild config                    \
-                       model=${{ matrix.model }} \
-                       name="Cruel-v5.3-G970F"   \
-                       toolchain=$TOOLCHAIN      \
-                       +magisk                   \
-                       +nohardening              \
-                       +ttl                      \
-                       +wireguard                \
-                       +cifs                     \
-                       +sdfat                    \
-                       +ntfs                     \
-                       +morosound                \
-                       +boeffla_wl_blocker       \
-          2>&1 | tee config.info
+          ./cruelbuild config \
+            model=${{ matrix.model }} \
+            name="Cruel-v5.3-G970F" \
+            toolchain=$TOOLCHAIN \
+            +magisk \
+            +nohardening \
+            +ttl \
+            +wireguard \
+            +cifs \
+            +sdfat \
+            +ntfs \
+            +morosound \
+            +boeffla_wl_blocker
 
       - name: Deploy Toolchain
         run: git clone --depth 1 -j $(nproc) --branch $TOOLCHAIN --single-branch https://github.com/CruelKernel/samsung-exynos9820-toolchain toolchain
 
       - name: Kernel Build
         run: ./cruelbuild :build
-
-      - name: Install mkbootimg
-        run: |
-          wget -q https://android.googlesource.com/platform/system/tools/mkbootimg/+archive/refs/heads/master.tar.gz -O - | tar xzf - mkbootimg.py gki
-          chmod +x mkbootimg.py
-          sudo mv mkbootimg.py /usr/local/bin/mkbootimg
-          sudo mv gki $(python -c 'import site; print(site.getsitepackages()[0])')
-
-      - name: Install mkdtboimg
-        run: |
-          wget -q https://android.googlesource.com/platform/system/libufdt/+archive/refs/heads/master.tar.gz -O - | tar --strip-components 2 -xzf - utils/src/mkdtboimg.py
-          chmod +x mkdtboimg.py
-          sudo mv mkdtboimg.py /usr/local/bin/mkdtboimg
-
-      - name: Install avbtool
-        run: |
-          wget -q https://android.googlesource.com/platform/external/avb/+archive/refs/heads/master.tar.gz -O - | tar xzf - avbtool.py
-          chmod +x avbtool.py
-          sudo mv avbtool.py /usr/local/bin/avbtool
 
       - name: Create CruelKernel images
         run: ./cruelbuild :mkimg
@@ -107,8 +65,7 @@ jobs:
 
       - name: Upload Kernel Zip
         if: env.INSTALLER == 'yes'
-       uses: actions/upload-artifact@v4
-
+        uses: actions/upload-artifact@v4
         with:
           name: CruelKernel-G970F
           path: installer/*
@@ -116,16 +73,15 @@ jobs:
 
       - name: Upload Kernel Images
         if: env.INSTALLER != 'yes'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: CruelKernel-G970F
           path: '*.img'
           if-no-files-found: error
 
       - name: Upload Kernel Info
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ConfigurationInfo-G970F
           path: config.*
           if-no-files-found: error
-
