@@ -26,12 +26,9 @@ jobs:
       - name: Install dependencies
         env:
           DEBIAN_FRONTEND: noninteractive
-        run: sudo apt-get install -y -qq libtinfo5 ccache unzip curl
-
-      - name: Download latest Magisk
         run: |
-          mkdir -p usr/magisk
-          curl -L -o usr/magisk/magisk.zip https://github.com/topjohnwu/Magisk/releases/download/v26.3/Magisk-v26.3.zip
+          sudo apt-get update
+          sudo apt-get install -y -qq libtinfo5 ccache android-sdk-libsparse-utils unzip curl
 
       - name: Kernel Configure
         run: |
